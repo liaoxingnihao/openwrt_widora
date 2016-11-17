@@ -1,0 +1,5 @@
+config DHT11-DRIVER 
+     tristate "DHT11-driver"
+     default m
+     help 
+         This is DHT11 driver module 
