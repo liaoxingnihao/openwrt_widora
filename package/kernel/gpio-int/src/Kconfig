@@ -1,0 +1,5 @@
+config MIDAS-DRIVER
+	tristate "GPIO-INT-TEST"
+        default m
+	help
+	  This is an test for GPIO interrupt test.
