@@ -4,4 +4,4 @@ This is a driver program for infrared remote control receiver demodulation modul
 An infrared receiver module has three pins, two for power supply and one for data output.
 The data output pin shall be connected to Widora IO17 PIN.
 
-midas zhou
+Midas zhou
