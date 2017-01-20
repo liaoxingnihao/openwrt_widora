@@ -1,0 +1,5 @@
+config KDRAW
+tristate "kdraw"
+default m
+help
+   This is a kernel driver for spi draw
