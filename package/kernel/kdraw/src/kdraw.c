@@ -37,8 +37,10 @@
 #include <asm-generic/gpio.h>
 #include <linux/interrupt.h> //------request_irq()
 #include "kdraw.h"
+#include <linux/workqueue.h> //--workqueue,struct work_struct  DECLARE_WORK(), INIT_WORK()
 
 #define GPIO_PIN_NUM 20
+#define LED_PIN_NUM 21 //----A beeper will activate an interrupt accidently again after finishing beeping!!! so use LED instead.
 static unsigned int INT_STATUS=0; //1--interrupt triggered, 0 no interrupt
 static unsigned int GPIO_INT_NUM=0; //IRQ Number
 static unsigned int IRQ_DISABLED_TOKEN;
@@ -83,6 +85,30 @@ static void get_gpio_INT_num(void)
       printk("Get GPIO_INT_NUM failed! \n");
 }
 
+//----------------------  schedule work function   ---------------------
+//static struct work_struct kdraw_wq;
+static void  kdraw_wq_handler(void *data)
+{
+	int k=0;
+	int lbit=1;
+	printk("....Entering KDRAW work queue ...\n");
+	//msleep_interruptible(100); //--delay to avoid key-jitter
+
+	for(k=0;k<10;k++)
+	{
+		//--- see set_pin_gpio() in module init 
+    		lbit=!lbit;
+		printk("----k=%d  lbit=%d -----\n",k,lbit);
+		set_gpio_value(LED_PIN_NUM,lbit); //--set_gpio_value() will call set_gpio_output() first
+		msleep(50);
+	}
+	msleep(100);
+	enable_irq(GPIO_INT_NUM); //--re-enable irq
+
+}
+//-----static declare wore queue;
+DECLARE_WORK(KDRAW_WQ,kdraw_wq_handler); //-- direct explicit use of KDRAW_WQ, no need for pre-definition. 
+
 //----------------------- Interrupt Handler  ---------------------------
 static irqreturn_t gpio_int_handler(int irq, void *dev_id,struct pt_regs *regs)
 {
@@ -93,11 +119,13 @@ static irqreturn_t gpio_int_handler(int irq, void *dev_id,struct pt_regs *regs)
   INT_STATUS=1;
 
   disable_irq_nosync(GPIO_INT_NUM); //--disable IRQ
-  enable_irq(GPIO_INT_NUM);
+  
+  schedule_work(&KDRAW_WQ); //--- schedule work queue.
  
   IRQ_DISABLED_TOKEN=1;  
-}
 
+  return IRQ_HANDLED; //  !!!! ignore this return will result in printing out crap information from kernel, and more running time cost.
+}
 
 
 //---------------------- Register GPIO Interrupt  ----------------
@@ -105,6 +133,8 @@ static int register_gpio_IRQ(void)
 {
 	int int_result;
 	int_result=request_irq(GPIO_INT_NUM,gpio_int_handler,IRQF_DISABLED,"KDRAW_INT",NULL);
+        //----- flag IRQF_DISABLED will disable all local INTs while excecuting upper part gpio_int_handler.
+        //-----IRQF_RISING not effective! Relevant functions in gpio.h & interrupt.h have not been realized yet.
         //----- cat /proc/interrupts to see KDRAW_INT info.
 	if(int_result!=0)
 	{
@@ -292,12 +322,13 @@ static __init int kdraw_init(void)
 	//------------- read user space file test  ---------
         read_user_space();   
         //------------ Init GPIO Interrupt ------------
-	map_gpio_register();       
-        if(!valify_gpio_num(GPIO_PIN_NUM)) //--check pin number first
+	map_gpio_register();
+        if(!verify_gpio_num(GPIO_PIN_NUM)) //--check pin number first
 	{
 		printk("GPIO pin not available! Use GPIO #14-#21 instead.");
 		return ret_v;
 	}
+        set_pin_gpio(GPIO_PIN_NUM); //--set pin group for GPIO purpose
         set_gpio_value(GPIO_PIN_NUM,0);
 	set_gpio_input(GPIO_PIN_NUM);
         enable_gpio_rise_int(GPIO_PIN_NUM);//---It seems kernel will reset INT after INT handler called.

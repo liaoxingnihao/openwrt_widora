@@ -49,15 +49,16 @@ void unmap_gpio_register(void)
 }
 
 /*------------------    validate GPIO Number ------------------*/
-static int valify_gpio_num(unsigned int GPIO_PIN_NUM)
+static int verify_gpio_num(unsigned int GPIO_PIN_NUM)
 {
 //------!!!! USE PIN NUMBER 14-21 ONLY, SET AS GPIO PURPOSE BY DEFAULT  !!!!
 	if(GPIO_PIN_NUM<14|GPIO_PIN_NUM>21)return 0;
         else
         	return 1;
 }
-/*------------------      set GPIO Direction as Input      ---------------- */
-static void set_gpio_input(unsigned int GPIO_PIN_NUM)
+
+/*------------------      set Pin as GPIO Purpose      ---------------- */
+static void set_pin_gpio(unsigned int GPIO_PIN_NUM) //--will set all pin-group as GPIO
 {
 	if(GPIO_PIN_NUM >13 && GPIO_PIN_NUM<18)
 	{
@@ -70,10 +71,22 @@ static void set_gpio_input(unsigned int GPIO_PIN_NUM)
 		*GPIO1_MODE |=(0x1<<26); //---set  GPIO20-21	GPIO MODE
 		*GPIO1_MODE &=~(0x1<<27);	
 	}
+}
+
+
+/*------------------      set GPIO Direction as Input      ---------------- */
+static void set_gpio_input(unsigned int GPIO_PIN_NUM)
+{
 
        *GPIO_CTRL_0 &=~(0x1<<GPIO_PIN_NUM); //---bit set 0, input mode
-  // *GPIO_POL_0 |=(0x1<<GPIO_PIN_NUM); ---set polarity 1 as inverted ----crack!!!!!!
 }
+
+static void set_gpio_output(unsigned int GPIO_PIN_NUM)
+{
+
+       *GPIO_CTRL_0 |=(0x1<<GPIO_PIN_NUM); //---bit set 1, output mode
+}
+
 
 
 /* ----------------     set and  enable gpio interrupt  rise_int() and fall_int() to be interlocked  ------------*/
@@ -101,12 +114,14 @@ static void set_gpio_input(unsigned int GPIO_PIN_NUM)
 /*-------------------    get gpio data   --------------------*/
 unsigned int get_gpio_value(unsigned int GPIO_PIN_NUM)
 {
+  //??? set_gpio_input() necessary????
   return ((*GPIO_DATA_0)>>GPIO_PIN_NUM)&0x01; 
 }
 
 /*-------------------    set gpio data   --------------------*/
 void set_gpio_value(unsigned int GPIO_PIN_NUM,unsigned int VALUE)
 {
+  set_gpio_output(GPIO_PIN_NUM); //--set direction output
   if(VALUE)
     *GPIO_DATA_0|=(0x1<<GPIO_PIN_NUM);
   else
